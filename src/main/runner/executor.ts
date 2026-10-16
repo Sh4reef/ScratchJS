@@ -1,6 +1,8 @@
 import { spawn, ChildProcess } from 'child_process'
 import { app } from 'electron'
 import { join } from 'path'
+import { existsSync, statSync } from 'fs'
+import os from 'os'
 import { transpileCode } from './transpiler'
 
 export interface LogEntry {
@@ -111,6 +113,21 @@ ${transpileResult.code}
     const isPackaged = app ? app.isPackaged : false
     const executable = isPackaged ? process.execPath : 'node'
 
+    const resolvedCwd = (() => {
+      if (workingDirectory && existsSync(workingDirectory)) {
+        try {
+          if (statSync(workingDirectory).isDirectory()) return workingDirectory
+        } catch {}
+      }
+      const rawCwd = process.cwd()
+      if (rawCwd && !rawCwd.includes('.asar')) {
+        try {
+          if (existsSync(rawCwd) && statSync(rawCwd).isDirectory()) return rawCwd
+        } catch {}
+      }
+      return app ? app.getPath('home') : os.homedir()
+    })()
+
     const env: NodeJS.ProcessEnv = {
       ...process.env,
       NODE_PATH: nodePaths.join(process.platform === 'win32' ? ';' : ':'),
@@ -121,7 +138,7 @@ ${transpileResult.code}
       const logs: LogEntry[] = []
 
       const proc = spawn(executable, ['--input-type=module', '-e', runnerScript], {
-        cwd: workingDirectory || process.cwd(),
+        cwd: resolvedCwd,
         env,
         stdio: ['pipe', 'pipe', 'pipe']
       })
