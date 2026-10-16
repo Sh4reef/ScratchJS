@@ -27,9 +27,16 @@ if (process.platform === 'darwin') {
       }
     }
 
-    // 2. Replace default electron.icns with ScratchJS icns
-    if (existsSync(icnsSource) && existsSync(resourcesPath)) {
-      copyFileSync(icnsSource, join(resourcesPath, 'electron.icns'))
+    // 2. Replace default electron.icns and icon images with ScratchJS assets
+    const pngSource = join(rootDir, 'resources/icon.png')
+    if (existsSync(resourcesPath)) {
+      if (existsSync(icnsSource)) {
+        copyFileSync(icnsSource, join(resourcesPath, 'electron.icns'))
+      }
+      if (existsSync(pngSource)) {
+        copyFileSync(pngSource, join(resourcesPath, 'icon.png'))
+        copyFileSync(pngSource, join(resourcesPath, 'electron.png'))
+      }
     }
   }
 }

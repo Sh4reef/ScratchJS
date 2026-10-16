@@ -54,7 +54,10 @@ function buildMenu(): void {
           {
             label: 'ScratchJS',
             submenu: [
-              { role: 'about' as const, label: 'About ScratchJS' },
+              {
+                label: 'About ScratchJS',
+                click: () => app.showAboutPanel()
+              },
               { type: 'separator' as const },
               { role: 'services' as const },
               { type: 'separator' as const },
@@ -201,12 +204,22 @@ function registerIpcHandlers(): void {
 
 app.whenReady().then(() => {
   app.setName('ScratchJS')
+  const iconPath = join(__dirname, '../../resources/icon.png')
   if (process.platform === 'darwin' && app.dock) {
-    const iconPath = join(__dirname, '../../resources/icon.png')
     if (existsSync(iconPath)) {
       app.dock.setIcon(iconPath)
     }
   }
+
+  app.setAboutPanelOptions({
+    applicationName: 'ScratchJS',
+    applicationVersion: '1.0.0',
+    version: '1.0.0',
+    copyright: 'Copyright © 2026 ScratchJS',
+    credits: 'Instant scratchpads for JavaScript & TypeScript',
+    iconPath: existsSync(iconPath) ? iconPath : undefined
+  })
+
   registerIpcHandlers()
   createWindow()
 
