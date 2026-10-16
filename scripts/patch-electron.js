@@ -18,11 +18,13 @@ if (process.platform === 'darwin') {
       try {
         execSync(`plutil -replace CFBundleName -string "ScratchJS" "${plistPath}"`)
         execSync(`plutil -replace CFBundleDisplayName -string "ScratchJS" "${plistPath}"`)
+        execSync(`plutil -replace CFBundleIdentifier -string "com.scratchjs.desktop" "${plistPath}"`)
       } catch {
         // Fallback to text replace if plutil fails
         let content = readFileSync(plistPath, 'utf-8')
         content = content.replace(/<key>CFBundleDisplayName<\/key>\s*<string>[^<]*<\/string>/, '<key>CFBundleDisplayName</key>\n\t<string>ScratchJS</string>')
         content = content.replace(/<key>CFBundleName<\/key>\s*<string>[^<]*<\/string>/, '<key>CFBundleName</key>\n\t<string>ScratchJS</string>')
+        content = content.replace(/<key>CFBundleIdentifier<\/key>\s*<string>[^<]*<\/string>/, '<key>CFBundleIdentifier</key>\n\t<string>com.scratchjs.desktop</string>')
         writeFileSync(plistPath, content, 'utf-8')
       }
     }
@@ -32,11 +34,17 @@ if (process.platform === 'darwin') {
     if (existsSync(resourcesPath)) {
       if (existsSync(icnsSource)) {
         copyFileSync(icnsSource, join(resourcesPath, 'electron.icns'))
+        copyFileSync(icnsSource, join(resourcesPath, 'icon.icns'))
       }
       if (existsSync(pngSource)) {
         copyFileSync(pngSource, join(resourcesPath, 'icon.png'))
         copyFileSync(pngSource, join(resourcesPath, 'electron.png'))
       }
     }
+
+    // 3. Touch the app bundle to notify macOS LaunchServices to refresh cached metadata
+    try {
+      execSync(`touch "${electronAppPath}"`)
+    } catch {}
   }
 }
