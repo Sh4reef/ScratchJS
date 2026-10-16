@@ -1,19 +1,28 @@
-import { transform } from 'esbuild'
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync } from 'fs'
 
-function ensureEsbuildBinary(): void {
+let esbuildTransform: typeof import('esbuild').transform | null = null
+
+async function getTransform(): Promise<typeof import('esbuild').transform> {
+  if (esbuildTransform) return esbuildTransform
+
   if (app && app.isPackaged && !process.env.ESBUILD_BINARY_PATH) {
-    const arch = process.arch
-    const unpackedBin = join(
-      process.resourcesPath,
-      `app.asar.unpacked/node_modules/@esbuild/darwin-${arch}/bin/esbuild`
-    )
-    if (existsSync(unpackedBin)) {
-      process.env.ESBUILD_BINARY_PATH = unpackedBin
+    const candidates = [
+      join(process.resourcesPath, `app.asar.unpacked/node_modules/@esbuild/${process.platform}-${process.arch}/bin/esbuild`),
+      join(process.resourcesPath, 'app.asar.unpacked/node_modules/esbuild/bin/esbuild')
+    ]
+    for (const candidate of candidates) {
+      if (existsSync(candidate)) {
+        process.env.ESBUILD_BINARY_PATH = candidate
+        break
+      }
     }
   }
+
+  const esbuild = await import('esbuild')
+  esbuildTransform = esbuild.transform
+  return esbuildTransform
 }
 
 export interface TranspileResult {
@@ -64,7 +73,7 @@ export function instrumentMagicComments(source: string): string {
  */
 export async function transpileCode(source: string, isTypeScript: boolean = true): Promise<TranspileResult> {
   try {
-    ensureEsbuildBinary()
+    const transform = await getTransform()
     const instrumented = instrumentMagicComments(source)
     const result = await transform(instrumented, {
       loader: isTypeScript ? 'ts' : 'js',

@@ -13,13 +13,15 @@ app.name = 'ScratchJS'
 
 // Ensure esbuild binary path and process cwd are valid in packaged mode
 if (app && app.isPackaged) {
-  const arch = process.arch
-  const unpackedBin = join(
-    process.resourcesPath,
-    `app.asar.unpacked/node_modules/@esbuild/darwin-${arch}/bin/esbuild`
-  )
-  if (existsSync(unpackedBin)) {
-    process.env.ESBUILD_BINARY_PATH = unpackedBin
+  const candidates = [
+    join(process.resourcesPath, `app.asar.unpacked/node_modules/@esbuild/${process.platform}-${process.arch}/bin/esbuild`),
+    join(process.resourcesPath, 'app.asar.unpacked/node_modules/esbuild/bin/esbuild')
+  ]
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      process.env.ESBUILD_BINARY_PATH = candidate
+      break
+    }
   }
 }
 
