@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Production & Dev builds
+out/
+dist/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Reference external app bundle
+RunJS.app
+
+# Environment / local configs
+.env
+.env.local
+*.log
+
+# Superpowers temporary brainstorm data
+.superpowers/
