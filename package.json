@@ -1,8 +1,9 @@
 {
-  "name": "runjs-clone",
+  "name": "scratchjs",
+  "productName": "ScratchJS",
   "version": "1.0.0",
   "type": "module",
-  "description": "Desktop JavaScript and TypeScript playground scratchpad",
+  "description": "Instant scratchpads for JavaScript & TypeScript",
   "main": "./out/main/index.js",
   "author": "Antigravity",
   "license": "MIT",

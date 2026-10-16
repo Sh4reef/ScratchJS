@@ -53,7 +53,7 @@ function sha256(text) {
   return crypto.createHash('sha256').update(text).digest('hex');
 }
 
-const hash = sha256("Hello, RunJS!"); // ?
+const hash = sha256("Hello, ScratchJS!"); // ?
 console.log("SHA-256:", hash);
 `
   },

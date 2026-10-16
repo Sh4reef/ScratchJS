@@ -1,0 +1,23 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Outer macOS squircle background -->
+  <rect width="512" height="512" rx="115" fill="#18181f"/>
+  <rect x="6" y="6" width="500" height="500" rx="110" stroke="#2d2d3a" stroke-width="8"/>
+
+  <!-- Back scratchpad sheet -->
+  <rect x="115" y="95" width="280" height="310" rx="42" fill="#242430" stroke="#383849" stroke-width="8" transform="rotate(-6 256 250)"/>
+
+  <!-- Mid scratchpad sheet -->
+  <rect x="128" y="105" width="280" height="310" rx="42" fill="#1e1e27" stroke="#4a4a5e" stroke-width="8" transform="rotate(3 268 260)"/>
+
+  <!-- Front scratchpad sheet with JS golden border -->
+  <rect x="116" y="122" width="280" height="310" rx="42" fill="#121216" stroke="#F7DF1E" stroke-width="10"/>
+
+  <!-- Scratchpad code lines -->
+  <line x1="160" y1="188" x2="280" y2="188" stroke="#3b3b4d" stroke-width="10" stroke-linecap="round"/>
+  <line x1="160" y1="226" x2="350" y2="226" stroke="#2c2c3b" stroke-width="10" stroke-linecap="round"/>
+  <line x1="160" y1="264" x2="320" y2="264" stroke="#2c2c3b" stroke-width="10" stroke-linecap="round"/>
+
+  <!-- Bold JS Amber Badge on bottom right of the front pad -->
+  <rect x="235" y="288" width="140" height="118" rx="28" fill="#F7DF1E"/>
+  <text x="305" y="372" font-family="-apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="66" fill="#121216" text-anchor="middle" letter-spacing="-1">JS</text>
+</svg>

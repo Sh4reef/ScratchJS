@@ -31,7 +31,7 @@ const DEFAULT_TABS: TabData[] = [
   {
     id: 'tab-1',
     title: 'Scratchpad 1',
-    code: `// 👋 Welcome to RunJS Clone!
+    code: `// 👋 Welcome to ScratchJS!
 // Write TypeScript or JavaScript here and click "Run" (or press Cmd+Enter / Ctrl+Enter)
 
 const numbers = [1, 2, 3, 4, 5];
@@ -64,7 +64,9 @@ export class AppStore {
 
   constructor() {
     const userDataPath = app.getPath('userData')
-    this.filePath = join(userDataPath, 'runjs-data.json')
+    const runjsPath = join(userDataPath, 'runjs-data.json')
+    const scratchPath = join(userDataPath, 'scratchjs-data.json')
+    this.filePath = existsSync(scratchPath) ? scratchPath : existsSync(runjsPath) ? runjsPath : scratchPath
     this.data = this.load()
   }
 

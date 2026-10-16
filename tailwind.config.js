@@ -13,6 +13,7 @@ export default {
         surfaceHover: '#2d2d44',
         border: '#313244',
         primary: '#89b4fa',
+        brand: '#F7DF1E',
         text: '#cdd6f4',
         textMuted: '#a6adc8',
         accent: '#cba6f7',

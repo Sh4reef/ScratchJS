@@ -23,7 +23,9 @@ export class PackageManager {
   private baseDir: string
 
   constructor() {
-    this.baseDir = join(app.getPath('userData'), 'runjs-packages')
+    const runjsDir = join(app.getPath('userData'), 'runjs-packages')
+    const scratchDir = join(app.getPath('userData'), 'scratchjs-packages')
+    this.baseDir = existsSync(scratchDir) ? scratchDir : existsSync(runjsDir) ? runjsDir : scratchDir
     this.ensureInitialized()
   }
 
@@ -38,7 +40,7 @@ export class PackageManager {
   private ensureInitialized(): void {
     try {
       if (!existsSync(this.baseDir)) {
-        mkdirSync(this.baseDir, { recursive: !0 })
+        mkdirSync(this.baseDir, { recursive: true })
       }
       const pkgJsonPath = join(this.baseDir, 'package.json')
       if (!existsSync(pkgJsonPath)) {
@@ -46,9 +48,9 @@ export class PackageManager {
           pkgJsonPath,
           JSON.stringify(
             {
-              name: 'runjs-user-packages',
+              name: 'scratchjs-user-packages',
               version: '1.0.0',
-              description: 'RunJS User Installed NPM Packages',
+              description: 'ScratchJS User Installed NPM Packages',
               dependencies: {}
             },
             null,

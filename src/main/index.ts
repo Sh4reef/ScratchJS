@@ -12,6 +12,7 @@ let mainWindow: BrowserWindow | null = null
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
+    title: 'ScratchJS',
     width: 1200,
     height: 800,
     minWidth: 800,
@@ -19,6 +20,7 @@ function createWindow(): void {
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#1e1e2e',
     show: false,
+    icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
@@ -195,6 +197,7 @@ function registerIpcHandlers(): void {
 }
 
 app.whenReady().then(() => {
+  app.setName('ScratchJS')
   registerIpcHandlers()
   createWindow()
 
