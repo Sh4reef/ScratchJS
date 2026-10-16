@@ -6,8 +6,8 @@
     </filter>
   </defs>
 
-  <!-- macOS HIG Standard: 824x824 squircle centered in 1024x1024 with 100px margins -->
-  <g filter="url(#macDropShadow)" transform="translate(100, 100) scale(1.609375)">
+  <!-- Scaled 896x896 squircle centered in 1024x1024 with 64px margins -->
+  <g filter="url(#macDropShadow)" transform="translate(64, 64) scale(1.75)">
     <!-- Squircle base (824x824, rx=185 when scaled) -->
     <rect width="512" height="512" rx="115" fill="#18181f"/>
     <rect x="6" y="6" width="500" height="500" rx="110" stroke="#2d2d3a" stroke-width="8"/>
