@@ -7,16 +7,20 @@ interface EditorProps {
   onChange: (value: string) => void
   onRun: () => void
   onStop?: () => void
+  onClear?: () => void
   preferences: UserPreferences
 }
 
-export const CodeEditor: React.FC<EditorProps> = ({ code, onChange, onRun, onStop, preferences }) => {
+export const CodeEditor: React.FC<EditorProps> = ({ code, onChange, onRun, onStop, onClear, preferences }) => {
   const monacoRef = useRef<Monaco | null>(null)
   const onRunRef = useRef(onRun)
   onRunRef.current = onRun
 
   const onStopRef = useRef(onStop)
   onStopRef.current = onStop
+
+  const onClearRef = useRef(onClear)
+  onClearRef.current = onClear
 
   const handleEditorDidMount: OnMount = (editor, monaco) => {
     monacoRef.current = monaco
@@ -30,6 +34,13 @@ export const CodeEditor: React.FC<EditorProps> = ({ code, onChange, onRun, onSto
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Period, () => {
       if (onStopRef.current) {
         onStopRef.current()
+      }
+    })
+
+    // Bind Cmd+K / Ctrl+K to Clear output (overrides Monaco chord prefix)
+    editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, () => {
+      if (onClearRef.current) {
+        onClearRef.current()
       }
     })
 

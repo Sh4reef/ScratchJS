@@ -38,11 +38,14 @@ export const App: React.FC = () => {
   const stopCodeRef = useRef(stopCode)
   stopCodeRef.current = stopCode
 
+  const clearLogsRef = useRef(clearLogs)
+  clearLogsRef.current = clearLogs
+
   const [isPackagesOpen, setIsPackagesOpen] = useState(false)
   const [isSnippetsOpen, setIsSnippetsOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
-  // Global capture-phase shortcut listener (ensures Cmd+Enter / Cmd+. works even when Monaco or any input is focused)
+  // Global capture-phase shortcut listener (ensures Cmd+Enter / Cmd+. / Cmd+K works even when Monaco or any input is focused)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const isCmdOrCtrl = e.metaKey || e.ctrlKey
@@ -56,6 +59,10 @@ export const App: React.FC = () => {
         e.preventDefault()
         e.stopPropagation()
         stopCodeRef.current()
+      } else if (isCmdOrCtrl && (e.key === 'k' || e.key === 'K' || e.code === 'KeyK')) {
+        e.preventDefault()
+        e.stopPropagation()
+        clearLogsRef.current()
       }
     }
 
@@ -123,6 +130,7 @@ export const App: React.FC = () => {
               }
             }}
             onStop={stopCode}
+            onClear={clearLogs}
             preferences={preferences}
           />
         </div>
