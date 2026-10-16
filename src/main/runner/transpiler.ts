@@ -1,4 +1,20 @@
 import { transform } from 'esbuild'
+import { app } from 'electron'
+import { join } from 'path'
+import { existsSync } from 'fs'
+
+function ensureEsbuildBinary(): void {
+  if (app && app.isPackaged && !process.env.ESBUILD_BINARY_PATH) {
+    const arch = process.arch
+    const unpackedBin = join(
+      process.resourcesPath,
+      `app.asar.unpacked/node_modules/@esbuild/darwin-${arch}/bin/esbuild`
+    )
+    if (existsSync(unpackedBin)) {
+      process.env.ESBUILD_BINARY_PATH = unpackedBin
+    }
+  }
+}
 
 export interface TranspileResult {
   code: string
@@ -48,6 +64,7 @@ export function instrumentMagicComments(source: string): string {
  */
 export async function transpileCode(source: string, isTypeScript: boolean = true): Promise<TranspileResult> {
   try {
+    ensureEsbuildBinary()
     const instrumented = instrumentMagicComments(source)
     const result = await transform(instrumented, {
       loader: isTypeScript ? 'ts' : 'js',

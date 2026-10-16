@@ -11,6 +11,24 @@ const __dirname = dirname(__filename)
 
 app.name = 'ScratchJS'
 
+// Ensure esbuild binary path and process cwd are valid in packaged mode
+if (app && app.isPackaged) {
+  const arch = process.arch
+  const unpackedBin = join(
+    process.resourcesPath,
+    `app.asar.unpacked/node_modules/@esbuild/darwin-${arch}/bin/esbuild`
+  )
+  if (existsSync(unpackedBin)) {
+    process.env.ESBUILD_BINARY_PATH = unpackedBin
+  }
+}
+
+if (process.cwd().includes('.asar')) {
+  try {
+    process.chdir(app.getPath('home'))
+  } catch {}
+}
+
 let mainWindow: BrowserWindow | null = null
 
 function createWindow(): void {
