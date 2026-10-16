@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, Menu, MenuItemConstructorOptions } from 'electron'
 import { join, dirname } from 'path'
+import { existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { store, TabData, UserPreferences } from './store'
 import { executor, ExecutionOptions } from './runner/executor'
@@ -7,6 +8,8 @@ import { packageManager } from './packages/manager'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
+
+app.name = 'ScratchJS'
 
 let mainWindow: BrowserWindow | null = null
 
@@ -49,17 +52,17 @@ function buildMenu(): void {
     ...(isMac
       ? [
           {
-            label: app.name,
+            label: 'ScratchJS',
             submenu: [
-              { role: 'about' as const },
+              { role: 'about' as const, label: 'About ScratchJS' },
               { type: 'separator' as const },
               { role: 'services' as const },
               { type: 'separator' as const },
-              { role: 'hide' as const },
+              { role: 'hide' as const, label: 'Hide ScratchJS' },
               { role: 'hideOthers' as const },
               { role: 'unhide' as const },
               { type: 'separator' as const },
-              { role: 'quit' as const }
+              { role: 'quit' as const, label: 'Quit ScratchJS' }
             ]
           }
         ]
@@ -198,6 +201,12 @@ function registerIpcHandlers(): void {
 
 app.whenReady().then(() => {
   app.setName('ScratchJS')
+  if (process.platform === 'darwin' && app.dock) {
+    const iconPath = join(__dirname, '../../resources/icon.png')
+    if (existsSync(iconPath)) {
+      app.dock.setIcon(iconPath)
+    }
+  }
   registerIpcHandlers()
   createWindow()
 

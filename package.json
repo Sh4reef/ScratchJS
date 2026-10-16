@@ -8,8 +8,9 @@
   "author": "Antigravity",
   "license": "MIT",
   "scripts": {
-    "dev": "electron-vite dev --watch",
-    "build": "electron-vite build",
+    "postinstall": "node scripts/patch-electron.js",
+    "dev": "node scripts/patch-electron.js && electron-vite dev --watch",
+    "build": "node scripts/patch-electron.js && electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json"
   },
