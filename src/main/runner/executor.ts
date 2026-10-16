@@ -1,4 +1,5 @@
 import { spawn, ChildProcess } from 'child_process'
+import { app } from 'electron'
 import { join } from 'path'
 import { transpileCode } from './transpiler'
 
@@ -107,15 +108,19 @@ ${transpileResult.code}
       nodePaths.push(process.env.NODE_PATH)
     }
 
-    const env = {
+    const isPackaged = app ? app.isPackaged : false
+    const executable = isPackaged ? process.execPath : 'node'
+
+    const env: NodeJS.ProcessEnv = {
       ...process.env,
-      NODE_PATH: nodePaths.join(process.platform === 'win32' ? ';' : ':')
+      NODE_PATH: nodePaths.join(process.platform === 'win32' ? ';' : ':'),
+      ...(isPackaged ? { ELECTRON_RUN_AS_NODE: '1' } : {})
     }
 
     return new Promise((resolve) => {
       const logs: LogEntry[] = []
 
-      const proc = spawn('node', ['--input-type=module', '-e', runnerScript], {
+      const proc = spawn(executable, ['--input-type=module', '-e', runnerScript], {
         cwd: workingDirectory || process.cwd(),
         env,
         stdio: ['pipe', 'pipe', 'pipe']
