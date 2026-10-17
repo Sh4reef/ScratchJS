@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { X, Settings, Folder, Check } from 'lucide-react'
 import { UserPreferences } from '../../types'
 
@@ -20,8 +20,21 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [tabSize, setTabSize] = useState(preferences.tabSize || 2)
   const [lineNumbers, setLineNumbers] = useState(preferences.lineNumbers ?? true)
   const [wordWrap, setWordWrap] = useState(preferences.wordWrap ?? true)
+  const [vimMode, setVimMode] = useState(preferences.vimMode ?? false)
   const [workingDirectory, setWorkingDirectory] = useState(preferences.workingDirectory || '')
   const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    if (isOpen) {
+      setTheme(preferences.theme || 'vs-dark')
+      setFontSize(preferences.fontSize || 14)
+      setTabSize(preferences.tabSize || 2)
+      setLineNumbers(preferences.lineNumbers ?? true)
+      setWordWrap(preferences.wordWrap ?? true)
+      setVimMode(preferences.vimMode ?? false)
+      setWorkingDirectory(preferences.workingDirectory || '')
+    }
+  }, [isOpen, preferences])
 
   if (!isOpen) return null
 
@@ -32,6 +45,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
       tabSize: Number(tabSize),
       lineNumbers,
       wordWrap,
+      vimMode,
       workingDirectory: workingDirectory.trim() || undefined
     })
     setSaved(true)
@@ -119,6 +133,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 className="rounded border-border text-primary focus:ring-0"
               />
               <span>Wrap Long Lines</span>
+            </label>
+
+            <label className="flex items-start space-x-2 cursor-pointer pt-1">
+              <input
+                type="checkbox"
+                checked={vimMode}
+                onChange={(e) => setVimMode(e.target.checked)}
+                className="rounded border-border text-primary focus:ring-0 mt-0.5"
+              />
+              <div className="flex flex-col">
+                <div className="flex items-center space-x-1.5">
+                  <span className="font-medium text-text">Vim Mode</span>
+                  <span className="text-[10px] px-1.5 py-0.5 bg-primary/10 text-primary rounded font-mono font-medium leading-none">
+                    modal navigation
+                  </span>
+                </div>
+                <span className="text-[11px] text-textMuted/70 mt-0.5">
+                  Enable Vim keybindings, modal navigation (Normal, Insert, Visual), and command mode in the editor
+                </span>
+              </div>
             </label>
           </div>
 

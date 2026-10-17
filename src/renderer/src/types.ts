@@ -22,6 +22,7 @@ export interface UserPreferences {
   wordWrap: boolean
   autoFormatOnRun: boolean
   workingDirectory?: string
+  vimMode?: boolean
 }
 
 export interface PackageInfo {

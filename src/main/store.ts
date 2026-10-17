@@ -19,6 +19,7 @@ export interface UserPreferences {
   wordWrap: boolean
   autoFormatOnRun: boolean
   workingDirectory?: string
+  vimMode?: boolean
 }
 
 export interface AppStoreData {
@@ -55,7 +56,8 @@ const DEFAULT_PREFERENCES: UserPreferences = {
   tabSize: 2,
   lineNumbers: true,
   wordWrap: true,
-  autoFormatOnRun: false
+  autoFormatOnRun: false,
+  vimMode: false
 }
 
 export class AppStore {

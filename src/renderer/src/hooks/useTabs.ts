@@ -10,7 +10,8 @@ export function useTabs() {
     tabSize: 2,
     lineNumbers: true,
     wordWrap: true,
-    autoFormatOnRun: false
+    autoFormatOnRun: false,
+    vimMode: false
   })
   const [isLoaded, setIsLoaded] = useState(false)
 
