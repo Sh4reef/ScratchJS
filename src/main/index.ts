@@ -220,6 +220,19 @@ function registerIpcHandlers(): void {
   ipcMain.handle('packages:getNodeModulesPath', () => {
     return packageManager.getNodeModulesPath()
   })
+
+  // Window Management IPC
+  ipcMain.handle('window:toggle-maximize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return false
+    if (win.isMaximized()) {
+      win.unmaximize()
+      return false
+    } else {
+      win.maximize()
+      return true
+    }
+  })
 }
 
 app.whenReady().then(() => {

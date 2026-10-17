@@ -24,8 +24,20 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSnippets,
   onOpenSettings
 }) => {
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    // Ignore double-clicks on buttons or interactive controls
+    if (target.closest('button, input, select, textarea, a')) {
+      return
+    }
+    window.api.toggleMaximize()
+  }
+
   return (
-    <header className="h-11 bg-surface border-b border-border flex items-center justify-between px-3 pl-20 select-none">
+    <header
+      onDoubleClick={handleDoubleClick}
+      className="h-11 bg-surface border-b border-border flex items-center justify-between px-3 pl-20 select-none drag-region"
+    >
       {/* Left controls: Brand, Run, Stop, New Tab, Clear */}
       <div className="flex items-center space-x-2">
         {/* Brand Logo & Name */}
@@ -51,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
         {isRunning ? (
           <button
             onClick={onStop}
-            className="flex items-center space-x-1.5 px-3 py-1 bg-error/20 hover:bg-error/30 text-error rounded text-xs font-semibold transition"
+            className="no-drag flex items-center space-x-1.5 px-3 py-1 bg-error/20 hover:bg-error/30 text-error rounded text-xs font-semibold transition"
             title="Stop Execution (Cmd+.)"
           >
             <Square className="w-3.5 h-3.5 fill-current" />
@@ -60,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
         ) : (
           <button
             onClick={onRun}
-            className="flex items-center space-x-1.5 px-3 py-1 bg-primary/20 hover:bg-primary/30 text-primary rounded text-xs font-semibold transition"
+            className="no-drag flex items-center space-x-1.5 px-3 py-1 bg-primary/20 hover:bg-primary/30 text-primary rounded text-xs font-semibold transition"
             title="Run Code (Cmd+Enter / Ctrl+Enter)"
           >
             <Play className="w-3.5 h-3.5 fill-current" />
@@ -70,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         <button
           onClick={onNewTab}
-          className="flex items-center space-x-1 px-2 py-1 text-textMuted hover:text-text hover:bg-surfaceHover rounded text-xs transition"
+          className="no-drag flex items-center space-x-1 px-2 py-1 text-textMuted hover:text-text hover:bg-surfaceHover rounded text-xs transition"
           title="New Tab (Cmd+T)"
         >
           <Plus className="w-3.5 h-3.5" />
@@ -79,7 +91,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         <button
           onClick={onClearOutput}
-          className="flex items-center space-x-1 px-2 py-1 text-textMuted hover:text-text hover:bg-surfaceHover rounded text-xs transition"
+          className="no-drag flex items-center space-x-1 px-2 py-1 text-textMuted hover:text-text hover:bg-surfaceHover rounded text-xs transition"
           title="Clear Output (Cmd+K)"
         >
           <Trash2 className="w-3.5 h-3.5" />
@@ -88,7 +100,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* Center status: Execution status & timer */}
-      <div className="flex items-center space-x-2 text-xs text-textMuted">
+      <div className="flex items-center space-x-2 text-xs text-textMuted pointer-events-none">
         {isRunning && (
           <div className="flex items-center space-x-1.5 text-accent animate-pulse">
             <Loader2 className="w-3 h-3 animate-spin" />
@@ -104,7 +116,7 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="flex items-center space-x-1">
         <button
           onClick={onOpenPackages}
-          className="p-1.5 text-textMuted hover:text-text hover:bg-surfaceHover rounded transition"
+          className="no-drag p-1.5 text-textMuted hover:text-text hover:bg-surfaceHover rounded transition"
           title="NPM Packages"
         >
           <Package className="w-4 h-4" />
@@ -112,7 +124,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         <button
           onClick={onOpenSnippets}
-          className="p-1.5 text-textMuted hover:text-text hover:bg-surfaceHover rounded transition"
+          className="no-drag p-1.5 text-textMuted hover:text-text hover:bg-surfaceHover rounded transition"
           title="Snippets"
         >
           <Bookmark className="w-4 h-4" />
@@ -120,7 +132,7 @@ export const Header: React.FC<HeaderProps> = ({
 
         <button
           onClick={onOpenSettings}
-          className="p-1.5 text-textMuted hover:text-text hover:bg-surfaceHover rounded transition"
+          className="no-drag p-1.5 text-textMuted hover:text-text hover:bg-surfaceHover rounded transition"
           title="Settings"
         >
           <Settings className="w-4 h-4" />

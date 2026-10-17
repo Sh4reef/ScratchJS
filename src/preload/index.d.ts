@@ -65,6 +65,9 @@ export interface ElectronAPI {
 
   // Menu Accelerators
   onMenuAction: (action: 'run-code' | 'stop-code' | 'new-tab' | 'close-tab' | 'clear-output', callback: () => void) => () => void
+
+  // Window Management
+  toggleMaximize: () => Promise<boolean>
 }
 
 declare global {

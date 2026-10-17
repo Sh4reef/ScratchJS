@@ -20,3 +20,12 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #45475a;
 }
+
+/* Electron Window Drag Regions */
+.drag-region {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}

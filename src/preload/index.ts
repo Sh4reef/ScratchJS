@@ -100,6 +100,11 @@ const api = {
     const handler = () => callback()
     ipcRenderer.on(channel, handler)
     return () => ipcRenderer.removeListener(channel, handler)
+  },
+
+  // Window Management
+  toggleMaximize: (): Promise<boolean> => {
+    return ipcRenderer.invoke('window:toggle-maximize')
   }
 }
 
