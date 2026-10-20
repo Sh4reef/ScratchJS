@@ -49,10 +49,39 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Prepare macOS Code Signing
+        if: matrix.platform == 'mac'
+        env:
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          CSC_NAME: ${{ secrets.CSC_NAME }}
+        run: |
+          if [ -n "$CSC_LINK" ]; then
+            echo "Using custom/official certificate from CSC_LINK secret."
+            echo "CSC_LINK=$CSC_LINK" >> $GITHUB_ENV
+            echo "CSC_KEY_PASSWORD=$CSC_KEY_PASSWORD" >> $GITHUB_ENV
+            if [ -n "$CSC_NAME" ]; then
+              echo "CSC_NAME=$CSC_NAME" >> $GITHUB_ENV
+            fi
+          else
+            echo "No CSC_LINK secret configured. Generating self-signed certificate for macOS build..."
+            bash scripts/setup-mac-self-signing.sh --ci
+          fi
+
       - name: Build application packages
         run: ${{ matrix.build_cmd }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify macOS Code Signature
+        if: matrix.platform == 'mac'
+        run: |
+          echo "Verifying DMG and application signatures:"
+          shopt -s nullglob
+          for dmg in dist/*.dmg; do
+            echo "--- Codesign verification for $dmg ---"
+            codesign -dv --verbose=4 "$dmg" 2>&1 || true
+          done
 
       - name: Stage compiled release artifacts
         shell: bash
