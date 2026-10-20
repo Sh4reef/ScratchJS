@@ -60,7 +60,7 @@ export const OutputPane: React.FC<OutputPaneProps> = ({ logs, onClear: _onClear,
             onClick={() => setViewMode('console')}
             className={`flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-medium transition ${
               viewMode === 'console'
-                ? 'bg-accent/20 text-accent font-semibold shadow-xs'
+                ? 'bg-accent/20 text-accent font-semibold shadow-sm'
                 : 'text-textMuted hover:text-text hover:bg-surfaceHover'
             }`}
             title="Console Output"
@@ -73,7 +73,7 @@ export const OutputPane: React.FC<OutputPaneProps> = ({ logs, onClear: _onClear,
             onClick={() => setViewMode('split')}
             className={`flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-medium transition ${
               viewMode === 'split'
-                ? 'bg-accent/20 text-accent font-semibold shadow-xs'
+                ? 'bg-accent/20 text-accent font-semibold shadow-sm'
                 : 'text-textMuted hover:text-text hover:bg-surfaceHover'
             }`}
             title="Split (Preview & Console)"
@@ -86,7 +86,7 @@ export const OutputPane: React.FC<OutputPaneProps> = ({ logs, onClear: _onClear,
             onClick={() => setViewMode('preview')}
             className={`flex items-center space-x-1 px-2 py-0.5 rounded text-[11px] font-medium transition ${
               viewMode === 'preview'
-                ? 'bg-accent/20 text-accent font-semibold shadow-xs'
+                ? 'bg-accent/20 text-accent font-semibold shadow-sm'
                 : 'text-textMuted hover:text-text hover:bg-surfaceHover'
             }`}
             title="Preview Tile"
