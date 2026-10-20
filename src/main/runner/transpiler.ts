@@ -1,13 +1,21 @@
+import * as esbuild from 'esbuild'
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync } from 'fs'
 
-let esbuildTransform: typeof import('esbuild').transform | null = null
+export interface TranspileResult {
+  code: string
+  error?: string
+}
 
-async function getTransform(): Promise<typeof import('esbuild').transform> {
-  if (esbuildTransform) return esbuildTransform
+export interface TranspileOptions {
+  isTypeScript?: boolean
+  workingDirectory?: string
+  centralModulesPath?: string
+}
 
-  if (app && app.isPackaged && !process.env.ESBUILD_BINARY_PATH) {
+function ensureEsbuildBinary(): void {
+  if (typeof app !== 'undefined' && app?.isPackaged && !process.env.ESBUILD_BINARY_PATH) {
     const candidates = [
       join(process.resourcesPath, `app.asar.unpacked/node_modules/@esbuild/${process.platform}-${process.arch}/bin/esbuild`),
       join(process.resourcesPath, 'app.asar.unpacked/node_modules/esbuild/bin/esbuild')
@@ -19,70 +27,78 @@ async function getTransform(): Promise<typeof import('esbuild').transform> {
       }
     }
   }
-
-  const esbuild = await import('esbuild')
-  esbuildTransform = esbuild.transform
-  return esbuildTransform
 }
 
-export interface TranspileResult {
-  code: string
-  error?: string
+export function transformMagicComments(code: string): string {
+  const lines = code.split('\n')
+  return lines
+    .map((line, idx) => {
+      const lineNum = idx + 1
+      const commentMatch = line.match(/^(\s*)(.*?)(?:\s*\/\/\s*\?|\s*\/\/\?)(.*)$/)
+      if (commentMatch) {
+        const [, indent, expr] = commentMatch
+        const trimmedExpr = expr.trim()
+        if (trimmedExpr) {
+          const varDeclMatch = trimmedExpr.match(/^(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=/)
+          if (varDeclMatch) {
+            return `${indent}${trimmedExpr}\n${indent}__runjs_probe__(${lineNum}, (${varDeclMatch[1]}));`
+          }
+          return `${indent}__runjs_probe__(${lineNum}, (${trimmedExpr.replace(/;+$/, '')}));`
+        }
+      }
+      return line
+    })
+    .join('\n')
 }
 
-/**
- * Instruments magic comments (// ? and /* ? * /) so their runtime values
- * are captured and reported with line number coordinates.
- */
-export function instrumentMagicComments(source: string): string {
-  const lines = source.split('\n')
-  const magicLineRegex = /^(.*?)(?:\s*\/\/\s*\?\s*$|\s*\/\*\s*\?\s*\*\/)/
+export const instrumentMagicComments = transformMagicComments
 
-  const transformedLines = lines.map((line, index) => {
-    const match = line.match(magicLineRegex)
-    if (!match) return line
-
-    const codePart = match[1].trim()
-    if (!codePart) return line
-
-    // If it's a variable declaration: const x = foo(); // ?
-    const varDeclMatch = codePart.match(/^(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=\s*(.+)$/)
-    if (varDeclMatch) {
-      const varName = varDeclMatch[1]
-      // Preserve the declaration and insert the probe on the same line or right after
-      return `${codePart}; globalThis.__runjs_probe__ && globalThis.__runjs_probe__(${index + 1}, ${varName});`
-    }
-
-    // If it's an assignment: x = foo(); // ?
-    const assignMatch = codePart.match(/^([a-zA-Z0-9_$]+)\s*=\s*(.+)$/)
-    if (assignMatch) {
-      const varName = assignMatch[1]
-      return `${codePart}; globalThis.__runjs_probe__ && globalThis.__runjs_probe__(${index + 1}, ${varName});`
-    }
-
-    // If it's a standalone expression: [1, 2].map(x => x * 2); // ?
-    const cleanExpr = codePart.replace(/;+$/, '')
-    return `(() => { const _val = (${cleanExpr}); globalThis.__runjs_probe__ && globalThis.__runjs_probe__(${index + 1}, _val); return _val; })();`
-  })
-
-  return transformedLines.join('\n')
-}
-
-/**
- * Transpiles TypeScript / modern JavaScript using esbuild
- */
-export async function transpileCode(source: string, isTypeScript: boolean = true): Promise<TranspileResult> {
+export function transpileCode(code: string, isTypeScript?: boolean): Promise<TranspileResult>
+export function transpileCode(code: string, options?: TranspileOptions): Promise<TranspileResult>
+export async function transpileCode(
+  code: string,
+  options: TranspileOptions | boolean = {}
+): Promise<TranspileResult> {
+  const opts: TranspileOptions = typeof options === 'boolean' ? { isTypeScript: options } : options
+  const { isTypeScript = true, workingDirectory, centralModulesPath } = opts
   try {
-    const transform = await getTransform()
-    const instrumented = instrumentMagicComments(source)
-    const result = await transform(instrumented, {
+    ensureEsbuildBinary()
+    const transformed = transformMagicComments(code)
+    const hasImports = /^\s*import\s+/m.test(transformed)
+
+    if (hasImports && (workingDirectory || centralModulesPath)) {
+      const nodePaths: string[] = []
+      if (workingDirectory) nodePaths.push(workingDirectory)
+      if (centralModulesPath) nodePaths.push(centralModulesPath)
+
+      const buildResult = await esbuild.build({
+        stdin: {
+          contents: transformed,
+          resolveDir: workingDirectory || process.cwd(),
+          loader: isTypeScript ? 'ts' : 'js'
+        },
+        bundle: true,
+        write: false,
+        platform: 'neutral',
+        format: 'esm',
+        target: 'es2022',
+        nodePaths
+      })
+
+      return {
+        code: buildResult.outputFiles[0].text
+      }
+    }
+
+    const result = await esbuild.transform(transformed, {
       loader: isTypeScript ? 'ts' : 'js',
-      target: 'node18',
-      format: 'esm',
-      sourcemap: 'inline'
+      target: 'es2022',
+      format: 'esm'
     })
 
-    return { code: result.code }
+    return {
+      code: result.code
+    }
   } catch (err: any) {
     return {
       code: '',
