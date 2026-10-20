@@ -1,0 +1,115 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            platform: mac
+            build_cmd: npm run build:mac
+            artifact_pattern: dist/*.dmg
+          - os: windows-latest
+            platform: win
+            build_cmd: npm run build:win
+            artifact_pattern: dist/*.exe dist/*.msi
+          - os: ubuntu-latest
+            platform: linux
+            build_cmd: npm run build:linux
+            artifact_pattern: dist/*.AppImage dist/*.deb dist/*.rpm
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application packages
+        run: ${{ matrix.build_cmd }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stage compiled release artifacts
+        shell: bash
+        run: |
+          mkdir -p release-staging
+          for pattern in ${{ matrix.artifact_pattern }}; do
+            for file in $pattern; do
+              if [ -f "$file" ]; then
+                cp "$file" release-staging/
+              fi
+            done
+          done
+          echo "Staged artifacts:"
+          ls -la release-staging/
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts-${{ matrix.platform }}
+          path: release-staging/
+          if-no-files-found: error
+          retention-days: 1
+
+  upload-r2:
+    name: Upload to Cloudflare R2
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-artifacts
+          merge-multiple: true
+
+      - name: Display downloaded artifacts
+        run: |
+          echo "Files to upload to R2:"
+          ls -la all-artifacts/
+
+      - name: Upload release files to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_REGION: auto
+          R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID || vars.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+          R2_BUCKET: ${{ secrets.R2_BUCKET_NAME || vars.R2_BUCKET_NAME }}
+        run: |
+          if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ] || [ -z "$R2_ENDPOINT" ] || [ -z "$R2_BUCKET" ]; then
+            echo "Error: Missing Cloudflare R2 credentials or configuration variables."
+            exit 1
+          fi
+
+          aws s3 cp all-artifacts/ "s3://${R2_BUCKET}/scratchjs-download-files/" \
+            --recursive \
+            --endpoint-url "$R2_ENDPOINT"
+
+          echo "Upload to Cloudflare R2 completed successfully."
