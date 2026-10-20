@@ -66,7 +66,7 @@ openssl pkcs12 -export -legacy \
 
 if [ "$CI_MODE" = true ]; then
   echo "==> Configuring GitHub Actions runner keychain..."
-  KEYCHAIN_NAME="${RUNNER_TEMP:-/tmp}/scratchjs-build.keychain"
+  KEYCHAIN_NAME="${RUNNER_TEMP:-/tmp}/scratchjs-build.keychain-db"
   KEYCHAIN_PASS="ci-keychain-pass"
 
   security delete-keychain "$KEYCHAIN_NAME" 2>/dev/null || true
@@ -74,19 +74,22 @@ if [ "$CI_MODE" = true ]; then
   security set-keychain-settings -lut 21600 "$KEYCHAIN_NAME"
   security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_NAME"
 
-  # Import certificate & private key
-  security import "$P12_FILE" -k "$KEYCHAIN_NAME" -P "$P12_PASS" -T /usr/bin/codesign
-
-  # Authorize codesign tool without GUI password prompt
-  security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASS" "$KEYCHAIN_NAME" >/dev/null 2>&1
-
-  # Add as trusted root certificate for code signing
-  security add-trusted-cert -d -r trustRoot -p codeSign -k "$KEYCHAIN_NAME" "$CRT_FILE"
-
-  # Update user keychain search list
+  # Register keychain in user search list and set default first
   EXISTING_KEYCHAINS=$(security list-keychains -d user | tr -d '"' | tr '\n' ' ')
   security list-keychains -d user -s "$KEYCHAIN_NAME" $EXISTING_KEYCHAINS
   security default-keychain -s "$KEYCHAIN_NAME"
+
+  # Import certificate & private key with -A and -T to allow non-interactive signing without GUI prompts
+  security import "$P12_FILE" -k "$KEYCHAIN_NAME" -P "$P12_PASS" -A -T /usr/bin/codesign -T /usr/bin/productsign
+
+  # Ensure keychain is unlocked before updating partition list
+  security unlock-keychain -p "$KEYCHAIN_PASS" "$KEYCHAIN_NAME"
+
+  # Authorize codesign tools without GUI password prompt
+  security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASS" "$KEYCHAIN_NAME" || true
+
+  # Add as trusted root certificate for code signing in this keychain (no -d, which prompts for admin password)
+  security add-trusted-cert -r trustRoot -p codeSign -k "$KEYCHAIN_NAME" "$CRT_FILE"
 
   echo "==> Verifying code signing identity in keychain..."
   security find-identity -v -p codesigning "$KEYCHAIN_NAME"
@@ -103,8 +106,8 @@ elif [ "$INSTALL_LOCAL" = true ]; then
     LOGIN_KEYCHAIN="${HOME}/Library/Keychains/login.keychain"
   fi
   echo "==> Installing into local login keychain: $LOGIN_KEYCHAIN"
-  security import "$P12_FILE" -k "$LOGIN_KEYCHAIN" -P "$P12_PASS" -T /usr/bin/codesign
-  security add-trusted-cert -d -r trustRoot -p codeSign "$CRT_FILE"
+  security import "$P12_FILE" -k "$LOGIN_KEYCHAIN" -P "$P12_PASS" -A -T /usr/bin/codesign
+  security add-trusted-cert -r trustRoot -p codeSign "$CRT_FILE"
   echo "==> Identity installed into login keychain successfully."
 else
   mkdir -p "$OUTPUT_DIR"
@@ -117,5 +120,5 @@ else
   echo "To install into your macOS Login keychain for local signing, run:"
   echo "  npm run mac:setup-cert -- --install"
   echo "Or manually with security:"
-  echo "  security import $EXPORT_P12 -k ~/Library/Keychains/login.keychain-db -P $P12_PASS -T /usr/bin/codesign"
+  echo "  security import $EXPORT_P12 -k ~/Library/Keychains/login.keychain-db -P $P12_PASS -A -T /usr/bin/codesign"
 fi
