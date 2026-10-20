@@ -1,7 +1,7 @@
-import * as esbuild from 'esbuild'
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync } from 'fs'
+import { builtinModules } from 'module'
 
 export interface TranspileResult {
   code: string
@@ -13,6 +13,8 @@ export interface TranspileOptions {
   workingDirectory?: string
   centralModulesPath?: string
 }
+
+let esbuildInstance: typeof import('esbuild') | null = null
 
 function ensureEsbuildBinary(): void {
   if (typeof app !== 'undefined' && app?.isPackaged && !process.env.ESBUILD_BINARY_PATH) {
@@ -29,19 +31,30 @@ function ensureEsbuildBinary(): void {
   }
 }
 
+async function getEsbuild(): Promise<typeof import('esbuild')> {
+  if (!esbuildInstance) {
+    ensureEsbuildBinary()
+    esbuildInstance = await import('esbuild')
+  }
+  return esbuildInstance
+}
+
 export function transformMagicComments(code: string): string {
   const lines = code.split('\n')
   return lines
     .map((line, idx) => {
       const lineNum = idx + 1
-      const commentMatch = line.match(/^(\s*)(.*?)(?:\s*\/\/\s*\?|\s*\/\/\?)(.*)$/)
+      // Match line comment "// ?" / "//?" or block comment "/* ? */"
+      const commentMatch = line.match(/^(\s*)(.*?)(?:\s*\/\/\s*\?.*$|\s*\/\*\s*\?\s*\*\/.*$)/)
       if (commentMatch) {
         const [, indent, expr] = commentMatch
         const trimmedExpr = expr.trim()
         if (trimmedExpr) {
-          const varDeclMatch = trimmedExpr.match(/^(?:const|let|var)\s+([a-zA-Z0-9_$]+)\s*=/)
+          // Check for variable declaration with optional TypeScript type annotation
+          const varDeclMatch = trimmedExpr.match(/^(?:const|let|var)\s+([a-zA-Z0-9_$]+)(?:\s*:[^=]+)?\s*=/)
           if (varDeclMatch) {
-            return `${indent}${trimmedExpr}\n${indent}__runjs_probe__(${lineNum}, (${varDeclMatch[1]}));`
+            // Keep on same line to preserve line numbers in stack traces
+            return `${indent}${trimmedExpr.replace(/;+$/, '')}; __runjs_probe__(${lineNum}, (${varDeclMatch[1]}));`
           }
           return `${indent}__runjs_probe__(${lineNum}, (${trimmedExpr.replace(/;+$/, '')}));`
         }
@@ -62,7 +75,7 @@ export async function transpileCode(
   const opts: TranspileOptions = typeof options === 'boolean' ? { isTypeScript: options } : options
   const { isTypeScript = true, workingDirectory, centralModulesPath } = opts
   try {
-    ensureEsbuildBinary()
+    const esbuild = await getEsbuild()
     const transformed = transformMagicComments(code)
     const hasImports = /^\s*import\s+/m.test(transformed)
 
@@ -70,6 +83,14 @@ export async function transpileCode(
       const nodePaths: string[] = []
       if (workingDirectory) nodePaths.push(workingDirectory)
       if (centralModulesPath) nodePaths.push(centralModulesPath)
+
+      // Externalize Electron and all Node.js built-in modules
+      const nodeBuiltins = [
+        'electron',
+        'node:*',
+        ...builtinModules,
+        ...builtinModules.map((m) => `node:${m}`)
+      ]
 
       const buildResult = await esbuild.build({
         stdin: {
@@ -82,11 +103,12 @@ export async function transpileCode(
         platform: 'neutral',
         format: 'esm',
         target: 'es2022',
+        external: nodeBuiltins,
         nodePaths
       })
 
       return {
-        code: buildResult.outputFiles[0].text
+        code: buildResult.outputFiles?.[0]?.text ?? ''
       }
     }
 
