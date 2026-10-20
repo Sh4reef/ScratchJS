@@ -7,6 +7,12 @@
       "skillPath": "skills/brainstorming/SKILL.md",
       "computedHash": "fc6339f0e5b48c63279bd4f6c6340db55301b69ccc37a13e1e52bd5b3062746c"
     },
+    "opensrc": {
+      "source": "vercel-labs/opensrc",
+      "sourceType": "github",
+      "skillPath": "skills/opensrc/SKILL.md",
+      "computedHash": "20d4395d64cae1e0de62053e1084c0ef58fbf573326a38fbd04f4bb677f0d729"
+    },
     "using-superpowers": {
       "source": "obra/superpowers",
       "sourceType": "github",
