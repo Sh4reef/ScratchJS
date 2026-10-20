@@ -23,12 +23,24 @@ export class PreviewWindowManager {
   private parentWindow: BrowserWindow | null = null
   private previewWindow: BrowserWindow | null = null
   private activeTabId: string = ''
+  private lastRelativeBounds: PreviewBounds | null = null
   private isLoaded: boolean = false
-  private loadPromise: Promise<void> | null = null
-  private resolveLoad: (() => void) | null = null
 
   public init(parent: BrowserWindow): void {
     this.parentWindow = parent
+
+    // Reposition child window when parent moves (especially on Windows & Linux)
+    this.parentWindow.on('move', () => {
+      if (this.lastRelativeBounds && this.previewWindow && !this.previewWindow.isDestroyed() && this.previewWindow.isVisible()) {
+        this.setBounds(this.lastRelativeBounds)
+      }
+    })
+
+    // Clean up when parent window is closed
+    this.parentWindow.once('closed', () => {
+      this.destroy()
+    })
+
     this.createWindow()
   }
 
@@ -79,34 +91,35 @@ export class PreviewWindowManager {
     this.loadPreviewHtml()
   }
 
-  private loadPreviewHtml(): void {
+  private async loadPreviewHtml(): Promise<void> {
     if (!this.previewWindow || this.previewWindow.isDestroyed()) return
-    this.isLoaded = false
-    this.loadPromise = new Promise((resolve) => {
-      this.resolveLoad = resolve
-    })
-
-    this.previewWindow.webContents.once('did-finish-load', () => {
-      this.isLoaded = true
-      if (this.resolveLoad) {
-        this.resolveLoad()
-        this.resolveLoad = null
-      }
-    })
-
     const htmlPath = this.getPreviewHtmlPath()
-    this.previewWindow.loadFile(htmlPath, { search: `tabId=${this.activeTabId}` })
+    try {
+      this.isLoaded = false
+      await this.previewWindow.loadFile(htmlPath, { search: `tabId=${this.activeTabId}` })
+      this.isLoaded = true
+    } catch {
+      // Ignore navigation cancellation if new load starts
+    }
   }
 
   public setBounds(bounds: PreviewBounds): void {
     if (!this.previewWindow || this.previewWindow.isDestroyed()) return
+    this.lastRelativeBounds = bounds
+
     if (bounds.width <= 0 || bounds.height <= 0) {
       this.previewWindow.hide()
       return
     }
+
+    // Convert relative viewport coordinates to absolute screen coordinates
+    const parentBounds = this.parentWindow && !this.parentWindow.isDestroyed()
+      ? this.parentWindow.getContentBounds()
+      : { x: 0, y: 0 }
+
     this.previewWindow.setBounds({
-      x: Math.round(bounds.x),
-      y: Math.round(bounds.y),
+      x: Math.round(parentBounds.x + bounds.x),
+      y: Math.round(parentBounds.y + bounds.y),
       width: Math.round(bounds.width),
       height: Math.round(bounds.height)
     })
@@ -116,6 +129,9 @@ export class PreviewWindowManager {
     if (!this.previewWindow || this.previewWindow.isDestroyed()) return
     if (visible) {
       if (!this.previewWindow.isVisible()) {
+        if (this.lastRelativeBounds) {
+          this.setBounds(this.lastRelativeBounds)
+        }
         this.previewWindow.showInactive()
       }
     } else {
@@ -125,8 +141,11 @@ export class PreviewWindowManager {
     }
   }
 
-  public stop(_tabId: string): boolean {
+  public stop(tabId: string): boolean {
     if (!this.previewWindow || this.previewWindow.isDestroyed()) return false
+    if (tabId) {
+      this.activeTabId = tabId
+    }
     this.loadPreviewHtml()
     return true
   }
@@ -137,7 +156,7 @@ export class PreviewWindowManager {
     onLog?: (entry: LogEntry) => void
   ): Promise<ExecutionResult> {
     const startTime = Date.now()
-    const { tabId, isTypeScript = true, workingDirectory, centralModulesPath } = options
+    const { tabId, isTypeScript = true, workingDirectory, centralModulesPath, timeoutMs = 15000 } = options
     this.activeTabId = tabId
 
     // 1. Transpile/bundle code
@@ -155,7 +174,7 @@ export class PreviewWindowManager {
       }
       onLog?.(errEntry)
       return {
-        logs: [errEntry],
+        logs: [],
         durationMs: Date.now() - startTime,
         error: transpileResult.error
       }
@@ -164,19 +183,28 @@ export class PreviewWindowManager {
     // 2. Ensure preview window exists and reset clean state
     if (!this.previewWindow || this.previewWindow.isDestroyed()) {
       this.createWindow()
+    } else {
+      await this.loadPreviewHtml()
     }
 
-    this.loadPreviewHtml()
-    if (this.loadPromise) {
-      await this.loadPromise
-    }
-
-    // 3. Collect logs during execution
-    const logs: LogEntry[] = []
-
+    // 3. Execute with watchdog timeout
     try {
       if (this.previewWindow && !this.previewWindow.isDestroyed()) {
-        await this.previewWindow.webContents.executeJavaScript(transpileResult.code)
+        let timeoutHandle: NodeJS.Timeout | null = null
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(() => {
+            this.stop(tabId)
+            reject(new Error(`Execution timed out after ${timeoutMs / 1000}s`))
+          }, timeoutMs)
+        })
+
+        const execPromise = this.previewWindow.webContents.executeJavaScript(transpileResult.code)
+
+        try {
+          await Promise.race([execPromise, timeoutPromise])
+        } finally {
+          if (timeoutHandle) clearTimeout(timeoutHandle)
+        }
       }
     } catch (err: any) {
       const errMsg = err?.message || String(err)
@@ -185,17 +213,16 @@ export class PreviewWindowManager {
         args: [errMsg],
         timestamp: Date.now()
       }
-      logs.push(errEntry)
       onLog?.(errEntry)
       return {
-        logs,
+        logs: [],
         durationMs: Date.now() - startTime,
         error: errMsg
       }
     }
 
     return {
-      logs,
+      logs: [],
       durationMs: Date.now() - startTime
     }
   }
@@ -205,6 +232,8 @@ export class PreviewWindowManager {
       this.previewWindow.destroy()
     }
     this.previewWindow = null
+    this.parentWindow = null
+    this.lastRelativeBounds = null
   }
 }
 
