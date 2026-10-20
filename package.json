@@ -5,8 +5,7 @@
   "type": "module",
   "description": "Instant scratchpads for JavaScript & TypeScript",
   "main": "./out/main/index.js",
-  "author": "Syarif",
-  "email": "shareef.banjar@gmail.com",
+  "author": { "name": "Syarif", "email": "shareef.banjar@gmail.com" },
   "license": "MIT",
   "scripts": {
     "postinstall": "node scripts/patch-electron.js",

@@ -136,7 +136,7 @@ export const App: React.FC = () => {
         </div>
 
         <div className="w-[45%] h-full min-w-[280px]">
-          <OutputPane logs={logs} onClear={clearLogs} />
+          <OutputPane logs={logs} onClear={clearLogs} activeTabId={activeTabId} />
         </div>
       </main>
 
