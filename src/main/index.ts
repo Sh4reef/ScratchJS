@@ -6,7 +6,7 @@ import { store, TabData, UserPreferences } from './store'
 import { ExecutionOptions } from './runner/executor'
 import { previewManager, PreviewBounds } from './runner/preview-manager'
 import { packageManager } from './packages/manager'
-import { setupEnvironmentPath } from './path-utils'
+import { setupEnvironmentPath, refreshShellPathInBackground } from './path-utils'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -286,6 +286,7 @@ app.whenReady().then(() => {
 
   registerIpcHandlers()
   createWindow()
+  refreshShellPathInBackground()
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

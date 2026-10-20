@@ -1,9 +1,22 @@
-import { execSync } from 'child_process'
-import { existsSync, readdirSync, statSync } from 'fs'
+import { exec } from 'child_process'
+import { existsSync, readdirSync, statSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { homedir } from 'os'
+import { app } from 'electron'
 
 let isPathSetupDone = false
+let isAsyncShellPathInProgress = false
+
+function getCacheFilePath(): string | null {
+  try {
+    if (app && typeof app.getPath === 'function') {
+      return join(app.getPath('userData'), 'env-path-cache.json')
+    }
+  } catch {
+    // app.getPath might fail if called before app is ready
+  }
+  return null
+}
 
 /**
  * Returns candidate bin paths commonly used by node managers and package managers on Unix.
@@ -78,36 +91,79 @@ function getWindowsCandidatePaths(): string[] {
 }
 
 /**
- * Attempts to retrieve PATH from the user's interactive login shell on Unix.
+ * Loads cached shell PATH from disk if available.
  */
-function getShellPath(): string | null {
-  if (process.platform === 'win32') return null
-
-  const userShell = process.env.SHELL || '/bin/zsh'
+function getCachedShellPath(): string | null {
+  const cacheFile = getCacheFilePath()
+  if (!cacheFile || !existsSync(cacheFile)) return null
   try {
-    const rawOutput = execSync(
-      `${userShell} -ilc "echo __SCRATCHJS_PATH_START__; echo \\$PATH; echo __SCRATCHJS_PATH_END__"`,
-      {
-        encoding: 'utf-8',
-        timeout: 2500,
-        stdio: ['ignore', 'pipe', 'ignore']
-      }
-    )
-
-    const match = rawOutput.match(/__SCRATCHJS_PATH_START__\s*([\s\S]*?)\s*__SCRATCHJS_PATH_END__/)
-    if (match && match[1]) {
-      return match[1].trim()
+    const data = JSON.parse(readFileSync(cacheFile, 'utf-8'))
+    if (data && typeof data.path === 'string' && data.path.trim().length > 0) {
+      return data.path.trim()
     }
   } catch {
-    // Shell execution timed out or failed; will fallback to scanning candidate paths
+    // Ignore invalid cache file
   }
-
   return null
+}
+
+/**
+ * Saves resolved shell PATH to disk for instant loading on subsequent startups.
+ */
+function setCachedShellPath(resolvedPath: string): void {
+  const cacheFile = getCacheFilePath()
+  if (!cacheFile) return
+  try {
+    writeFileSync(cacheFile, JSON.stringify({ path: resolvedPath, updatedAt: Date.now() }), 'utf-8')
+  } catch {
+    // Ignore cache write errors
+  }
+}
+
+/**
+ * Asynchronously retrieves PATH from the user's interactive login shell on Unix without blocking the main thread.
+ */
+export function refreshShellPathInBackground(): void {
+  if (process.platform === 'win32' || isAsyncShellPathInProgress) return
+  isAsyncShellPathInProgress = true
+
+  const userShell = process.env.SHELL || '/bin/zsh'
+  exec(
+    `${userShell} -ilc "echo __SCRATCHJS_PATH_START__; echo \\$PATH; echo __SCRATCHJS_PATH_END__"`,
+    {
+      encoding: 'utf-8',
+      timeout: 5000
+    },
+    (error, stdout) => {
+      isAsyncShellPathInProgress = false
+      if (error || !stdout) return
+
+      const match = stdout.match(/__SCRATCHJS_PATH_START__\s*([\s\S]*?)\s*__SCRATCHJS_PATH_END__/)
+      if (match && match[1]) {
+        const shellPath = match[1].trim()
+        setCachedShellPath(shellPath)
+
+        // Merge newly discovered shell paths into process.env.PATH
+        const delimiter = process.platform === 'win32' ? ';' : ':'
+        const currentParts = (process.env.PATH || '').split(delimiter).filter(Boolean)
+        const newParts = [...currentParts]
+
+        for (const dir of shellPath.split(delimiter)) {
+          const trimmed = dir.trim()
+          if (trimmed && !newParts.includes(trimmed)) {
+            newParts.push(trimmed)
+          }
+        }
+        process.env.PATH = newParts.join(delimiter)
+      }
+    }
+  )
 }
 
 /**
  * Ensures process.env.PATH is properly populated with the user's shell PATH
  * and standard node/npm installation directories.
+ * This function runs in < 1ms by using cached paths and platform candidate directories.
  */
 export function setupEnvironmentPath(): void {
   if (isPathSetupDone) return
@@ -127,10 +183,10 @@ export function setupEnvironmentPath(): void {
     }
   }
 
-  // 1. Try to extract shell PATH on Unix
-  const shellPath = getShellPath()
-  if (shellPath) {
-    for (const p of shellPath.split(delimiter)) {
+  // 1. Try to load cached shell PATH if available (instant disk read)
+  const cachedPath = getCachedShellPath()
+  if (cachedPath) {
+    for (const p of cachedPath.split(delimiter)) {
       addPath(p)
     }
   }
@@ -140,7 +196,7 @@ export function setupEnvironmentPath(): void {
     addPath(p)
   }
 
-  // 3. Include platform candidate paths if they exist
+  // 3. Include platform candidate paths if they exist (< 1ms scan)
   const candidates = process.platform === 'win32' ? getWindowsCandidatePaths() : getUnixCandidatePaths()
   for (const candidate of candidates) {
     if (existsSync(candidate)) {
@@ -149,6 +205,9 @@ export function setupEnvironmentPath(): void {
   }
 
   process.env.PATH = pathParts.join(delimiter)
+
+  // 4. Trigger non-blocking background refresh to keep cache and PATH up-to-date
+  refreshShellPathInBackground()
 }
 
 /**

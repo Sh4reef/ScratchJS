@@ -11,8 +11,9 @@ export function usePreviewOverlay(
       return
     }
 
+    let isCancelled = false
     const updateBounds = () => {
-      if (!containerRef.current) return
+      if (isCancelled || !containerRef.current) return
       const rect = containerRef.current.getBoundingClientRect()
       if (rect.width <= 0 || rect.height <= 0) {
         window.api.setPreviewVisible(false)
@@ -28,7 +29,8 @@ export function usePreviewOverlay(
       window.api.setPreviewVisible(true)
     }
 
-    updateBounds()
+    // Defer initial layout update slightly so the main window completes its first paint instantly
+    const timer = setTimeout(updateBounds, 100)
 
     const resizeObserver = new ResizeObserver(() => {
       updateBounds()
@@ -38,6 +40,8 @@ export function usePreviewOverlay(
     window.addEventListener('resize', updateBounds)
 
     return () => {
+      isCancelled = true
+      clearTimeout(timer)
       resizeObserver.disconnect()
       window.removeEventListener('resize', updateBounds)
       window.api.setPreviewVisible(false)

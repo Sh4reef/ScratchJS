@@ -28,6 +28,16 @@ export default defineConfig({
         '@': resolve('src/renderer/src')
       }
     },
-    plugins: [react()]
+    plugins: [react()],
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'monaco-core': ['monaco-editor'],
+            'react-vendor': ['react', 'react-dom']
+          }
+        }
+      }
+    }
   }
 })

@@ -1,13 +1,21 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, lazy, Suspense } from 'react'
 import { Header } from './components/Header'
 import { TabBar } from './components/TabBar'
 import { CodeEditor } from './components/Editor'
 import { OutputPane } from './components/OutputPane'
-import { PackageModal } from './components/modals/PackageModal'
-import { SnippetsModal } from './components/modals/SnippetsModal'
-import { SettingsModal } from './components/modals/SettingsModal'
 import { useTabs } from './hooks/useTabs'
 import { useRunner } from './hooks/useRunner'
+
+// Lazy-load modal dialogs so they don't bloat the critical initial startup bundle
+const PackageModal = lazy(() =>
+  import('./components/modals/PackageModal').then((m) => ({ default: m.PackageModal }))
+)
+const SnippetsModal = lazy(() =>
+  import('./components/modals/SnippetsModal').then((m) => ({ default: m.SnippetsModal }))
+)
+const SettingsModal = lazy(() =>
+  import('./components/modals/SettingsModal').then((m) => ({ default: m.SettingsModal }))
+)
 
 export const App: React.FC = () => {
   const {
@@ -147,31 +155,37 @@ export const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Modals */}
-      <PackageModal isOpen={isPackagesOpen} onClose={() => setIsPackagesOpen(false)} />
+      {/* Modals - Lazy loaded on demand */}
+      <Suspense fallback={null}>
+        {isPackagesOpen && <PackageModal isOpen={isPackagesOpen} onClose={() => setIsPackagesOpen(false)} />}
 
-      <SnippetsModal
-        isOpen={isSnippetsOpen}
-        onClose={() => setIsSnippetsOpen(false)}
-        onInsertSnippet={(snippetCode) => {
-          updateActiveCode(activeTab.code + '\n\n' + snippetCode)
-        }}
-        onInsertInNewTab={(title, snippetCode) => {
-          addTab()
-          // Update the newly created tab on the next tick
-          setTimeout(() => {
-            updateActiveCode(snippetCode)
-            renameTab(activeTabId, title)
-          }, 50)
-        }}
-      />
+        {isSnippetsOpen && (
+          <SnippetsModal
+            isOpen={isSnippetsOpen}
+            onClose={() => setIsSnippetsOpen(false)}
+            onInsertSnippet={(snippetCode) => {
+              updateActiveCode(activeTab.code + '\n\n' + snippetCode)
+            }}
+            onInsertInNewTab={(title, snippetCode) => {
+              addTab()
+              // Update the newly created tab on the next tick
+              setTimeout(() => {
+                updateActiveCode(snippetCode)
+                renameTab(activeTabId, title)
+              }, 50)
+            }}
+          />
+        )}
 
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        preferences={preferences}
-        onSavePreferences={updatePreferences}
-      />
+        {isSettingsOpen && (
+          <SettingsModal
+            isOpen={isSettingsOpen}
+            onClose={() => setIsSettingsOpen(false)}
+            preferences={preferences}
+            onSavePreferences={updatePreferences}
+          />
+        )}
+      </Suspense>
     </div>
   )
 }

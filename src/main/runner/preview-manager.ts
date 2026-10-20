@@ -42,7 +42,9 @@ export class PreviewWindowManager {
       this.destroy()
     })
 
-    this.createWindow()
+    // Do NOT create child window synchronously here.
+    // It will be lazily created on demand when setVisible(true) or execute() is called,
+    // keeping startup time fast and resource usage minimal.
   }
 
   private getPreviewHtmlPath(): string {
@@ -105,11 +107,16 @@ export class PreviewWindowManager {
   }
 
   public setBounds(bounds: PreviewBounds): void {
-    if (!this.previewWindow || this.previewWindow.isDestroyed()) return
     this.lastRelativeBounds = bounds
 
     if (bounds.width <= 0 || bounds.height <= 0) {
-      this.previewWindow.hide()
+      if (this.previewWindow && !this.previewWindow.isDestroyed()) {
+        this.previewWindow.hide()
+      }
+      return
+    }
+
+    if (!this.previewWindow || this.previewWindow.isDestroyed()) {
       return
     }
 
@@ -127,17 +134,24 @@ export class PreviewWindowManager {
   }
 
   public setVisible(visible: boolean): void {
-    if (!this.previewWindow || this.previewWindow.isDestroyed()) return
-    if (visible) {
+    if (!visible) {
+      if (this.previewWindow && !this.previewWindow.isDestroyed() && this.previewWindow.isVisible()) {
+        this.previewWindow.hide()
+      }
+      return
+    }
+
+    // Lazily create preview window on first display request
+    if (!this.previewWindow || this.previewWindow.isDestroyed()) {
+      this.createWindow()
+    }
+
+    if (this.previewWindow && !this.previewWindow.isDestroyed()) {
       if (!this.previewWindow.isVisible()) {
         if (this.lastRelativeBounds) {
           this.setBounds(this.lastRelativeBounds)
         }
         this.previewWindow.showInactive()
-      }
-    } else {
-      if (this.previewWindow.isVisible()) {
-        this.previewWindow.hide()
       }
     }
   }
