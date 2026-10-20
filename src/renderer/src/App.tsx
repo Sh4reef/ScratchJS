@@ -45,6 +45,8 @@ export const App: React.FC = () => {
   const [isSnippetsOpen, setIsSnippetsOpen] = useState(false)
   const [isSettingsOpen, setIsSettingsOpen] = useState(false)
 
+  const isModalOpen = isPackagesOpen || isSnippetsOpen || isSettingsOpen
+
   // Global capture-phase shortcut listener (ensures Cmd+Enter / Cmd+. / Cmd+K works even when Monaco or any input is focused)
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
@@ -136,7 +138,12 @@ export const App: React.FC = () => {
         </div>
 
         <div className="w-[45%] h-full min-w-[280px]">
-          <OutputPane logs={logs} onClear={clearLogs} activeTabId={activeTabId} />
+          <OutputPane
+            logs={logs}
+            onClear={clearLogs}
+            activeTabId={activeTabId}
+            isModalOpen={isModalOpen}
+          />
         </div>
       </main>
 

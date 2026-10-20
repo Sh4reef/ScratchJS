@@ -12,6 +12,7 @@ export interface TranspileOptions {
   isTypeScript?: boolean
   workingDirectory?: string
   centralModulesPath?: string
+  centralModulesPaths?: string[]
 }
 
 let esbuildInstance: typeof import('esbuild') | null = null
@@ -79,18 +80,33 @@ export async function transpileCode(
     const transformed = transformMagicComments(code)
     const hasImports = /^\s*import\s+/m.test(transformed)
 
-    if (hasImports && (workingDirectory || centralModulesPath)) {
+    if (hasImports && (workingDirectory || centralModulesPath || opts.centralModulesPaths?.length)) {
       const nodePaths: string[] = []
-      if (workingDirectory) nodePaths.push(workingDirectory)
-      if (centralModulesPath) nodePaths.push(centralModulesPath)
+      if (Array.isArray(opts.centralModulesPaths)) {
+        nodePaths.push(...opts.centralModulesPaths)
+      } else if (centralModulesPath) {
+        nodePaths.push(centralModulesPath)
+      }
+      if (workingDirectory) {
+        nodePaths.push(join(workingDirectory, 'node_modules'))
+        nodePaths.push(workingDirectory)
+      }
 
-      // Externalize Electron and all Node.js built-in modules
-      const nodeBuiltins = [
-        'electron',
-        'node:*',
-        ...builtinModules,
-        ...builtinModules.map((m) => `node:${m}`)
-      ]
+      // Convert Node built-in imports to CommonJS require calls inside the bundle
+      const builtinPlugin = {
+        name: 'node-builtins-require',
+        setup(build: any) {
+          const filter = new RegExp(`^(node:.*|electron|${builtinModules.join('|')})$`)
+          build.onResolve({ filter }, (args: any) => ({
+            path: args.path,
+            namespace: 'node-builtin'
+          }))
+          build.onLoad({ filter: /.*/, namespace: 'node-builtin' }, (args: any) => ({
+            contents: `module.exports = require(${JSON.stringify(args.path)});`,
+            loader: 'js'
+          }))
+        }
+      }
 
       const buildResult = await esbuild.build({
         stdin: {
@@ -100,10 +116,11 @@ export async function transpileCode(
         },
         bundle: true,
         write: false,
-        platform: 'neutral',
+        platform: 'node',
+        mainFields: ['module', 'main'],
         format: 'esm',
         target: 'es2022',
-        external: nodeBuiltins,
+        plugins: [builtinPlugin],
         nodePaths
       })
 

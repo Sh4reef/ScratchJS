@@ -3,6 +3,7 @@ import { join } from 'path'
 import { existsSync, mkdirSync, writeFileSync, readFileSync } from 'fs'
 import { exec } from 'child_process'
 import { promisify } from 'util'
+import { findNpmExecutable, getAugmentedEnv } from '../path-utils'
 
 const execAsync = promisify(exec)
 
@@ -35,6 +36,22 @@ export class PackageManager {
 
   public getNodeModulesPath(): string {
     return join(this.baseDir, 'node_modules')
+  }
+
+  public getNodeModulesPaths(): string[] {
+    const paths: string[] = []
+    const primary = this.getNodeModulesPath()
+    if (existsSync(primary)) paths.push(primary)
+
+    try {
+      const scratchModules = join(app.getPath('userData'), 'scratchjs-packages', 'node_modules')
+      const runjsModules = join(app.getPath('userData'), 'runjs-packages', 'node_modules')
+      if (existsSync(scratchModules) && !paths.includes(scratchModules)) paths.push(scratchModules)
+      if (existsSync(runjsModules) && !paths.includes(runjsModules)) paths.push(runjsModules)
+    } catch {}
+
+    if (paths.length === 0) paths.push(primary)
+    return paths
   }
 
   private ensureInitialized(): void {
@@ -84,10 +101,20 @@ export class PackageManager {
 
   public async install(name: string, version?: string): Promise<{ success: boolean; error?: string }> {
     this.ensureInitialized()
+    const npmBin = findNpmExecutable()
+    if (!npmBin) {
+      return {
+        success: false,
+        error: 'NPM was not found on your system. Please ensure Node.js and NPM are installed in a standard location (e.g. Homebrew or NVM).'
+      }
+    }
+
     const pkgTarget = version ? `${name}@${version}` : name
+    const command = `"${npmBin}" install ${pkgTarget} --save-exact --legacy-peer-deps --package-lock=false`
     try {
-      await execAsync(`npm install ${pkgTarget} --save-exact --legacy-peer-deps --package-lock=false`, {
-        cwd: this.baseDir
+      await execAsync(command, {
+        cwd: this.baseDir,
+        env: getAugmentedEnv()
       })
       return { success: true }
     } catch (err: any) {
@@ -97,9 +124,19 @@ export class PackageManager {
 
   public async remove(name: string): Promise<{ success: boolean; error?: string }> {
     this.ensureInitialized()
+    const npmBin = findNpmExecutable()
+    if (!npmBin) {
+      return {
+        success: false,
+        error: 'NPM was not found on your system. Please ensure Node.js and NPM are installed in a standard location (e.g. Homebrew or NVM).'
+      }
+    }
+
+    const command = `"${npmBin}" uninstall ${name}`
     try {
-      await execAsync(`npm uninstall ${name}`, {
-        cwd: this.baseDir
+      await execAsync(command, {
+        cwd: this.baseDir,
+        env: getAugmentedEnv()
       })
       return { success: true }
     } catch (err: any) {

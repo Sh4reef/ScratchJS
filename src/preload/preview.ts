@@ -1,9 +1,75 @@
 import { ipcRenderer } from 'electron'
 import { createRequire } from 'module'
+import Module from 'module'
 
 // Extract tabId from query/search params or global
 const urlParams = new URLSearchParams(window.location.search)
 const tabId = urlParams.get('tabId') || 'default'
+
+// Active module resolution paths for user-installed npm packages and project workspace
+let activeModulePaths: string[] = []
+
+try {
+  const initialPaths = ipcRenderer.sendSync('preview:get-module-paths')
+  if (Array.isArray(initialPaths)) {
+    activeModulePaths = initialPaths.filter(Boolean)
+  }
+} catch {}
+
+function updateModulePaths(paths: string[]): void {
+  if (Array.isArray(paths)) {
+    for (const p of paths) {
+      if (p && !activeModulePaths.includes(p)) {
+        activeModulePaths.unshift(p)
+      }
+    }
+  }
+
+  // Update process.env.NODE_PATH and Module._initPaths
+  if (typeof process !== 'undefined' && process.env) {
+    const delimiter = process.platform === 'win32' ? ';' : ':'
+    const current = (process.env.NODE_PATH || '').split(delimiter).filter(Boolean)
+    const combined = Array.from(new Set([...activeModulePaths, ...current]))
+    process.env.NODE_PATH = combined.join(delimiter)
+    try {
+      if (typeof (Module as any)._initPaths === 'function') {
+        ;(Module as any)._initPaths()
+      }
+    } catch {}
+  }
+}
+
+updateModulePaths(activeModulePaths)
+;(globalThis as any).__scratchjs_set_module_paths = updateModulePaths
+
+// Hook Module._resolveFilename so both native require and customRequire find user packages
+try {
+  const origResolveFilename = (Module as any)._resolveFilename
+  if (typeof origResolveFilename === 'function') {
+    ;(Module as any)._resolveFilename = function (
+      request: string,
+      parent: any,
+      isMain: boolean,
+      options: any
+    ) {
+      try {
+        return origResolveFilename.call(this, request, parent, isMain, options)
+      } catch (err) {
+        if (options && options.paths) {
+          throw err
+        }
+        if (activeModulePaths.length === 0) {
+          throw err
+        }
+        return origResolveFilename.call(this, request, parent, isMain, {
+          paths: [...activeModulePaths, ...(parent?.paths || [])]
+        })
+      }
+    }
+  }
+} catch (e) {
+  console.warn('Failed to hook Module._resolveFilename in preview:', e)
+}
 
 // Setup Node require support for hybrid mode
 try {

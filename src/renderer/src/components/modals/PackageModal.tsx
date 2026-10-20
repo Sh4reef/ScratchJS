@@ -12,8 +12,6 @@ export const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose }) =
   const [query, setQuery] = useState('')
   const [activeTab, setActiveTab] = useState<'installed' | 'search'>('installed')
 
-  if (!isOpen) return null
-
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (query.trim()) {
@@ -22,8 +20,15 @@ export const PackageModal: React.FC<PackageModalProps> = ({ isOpen, onClose }) =
     }
   }
 
+  if (!isOpen) return null
+
   return (
-    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
       <div className="bg-surface border border-border w-full max-w-xl rounded-lg shadow-2xl flex flex-col h-[520px] overflow-hidden text-xs">
         {/* Modal Header */}
         <div className="h-11 px-4 border-b border-border flex items-center justify-between select-none">

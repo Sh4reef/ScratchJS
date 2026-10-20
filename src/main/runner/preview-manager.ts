@@ -16,6 +16,7 @@ export interface PreviewExecuteOptions {
   isTypeScript?: boolean
   workingDirectory?: string
   centralModulesPath?: string
+  centralModulesPaths?: string[]
   timeoutMs?: number
 }
 
@@ -156,14 +157,15 @@ export class PreviewWindowManager {
     onLog?: (entry: LogEntry) => void
   ): Promise<ExecutionResult> {
     const startTime = Date.now()
-    const { tabId, isTypeScript = true, workingDirectory, centralModulesPath, timeoutMs = 15000 } = options
+    const { tabId, isTypeScript = true, workingDirectory, centralModulesPath, centralModulesPaths, timeoutMs = 15000 } = options
     this.activeTabId = tabId
 
     // 1. Transpile/bundle code
     const transpileResult = await transpileCode(code, {
       isTypeScript,
       workingDirectory,
-      centralModulesPath
+      centralModulesPath,
+      centralModulesPaths
     })
 
     if (transpileResult.error) {
@@ -197,6 +199,25 @@ export class PreviewWindowManager {
             reject(new Error(`Execution timed out after ${timeoutMs / 1000}s`))
           }, timeoutMs)
         })
+
+        const pathsToSync: string[] = []
+        if (Array.isArray(centralModulesPaths)) {
+          pathsToSync.push(...centralModulesPaths)
+        } else if (centralModulesPath) {
+          pathsToSync.push(centralModulesPath)
+        }
+        if (workingDirectory) {
+          pathsToSync.push(join(workingDirectory, 'node_modules'))
+          pathsToSync.push(workingDirectory)
+        }
+
+        if (pathsToSync.length > 0) {
+          await this.previewWindow.webContents
+            .executeJavaScript(
+              `window.__scratchjs_set_module_paths && window.__scratchjs_set_module_paths(${JSON.stringify(pathsToSync)})`
+            )
+            .catch(() => {})
+        }
 
         const execPromise = this.previewWindow.webContents.executeJavaScript(transpileResult.code)
 

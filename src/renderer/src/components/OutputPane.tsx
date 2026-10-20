@@ -7,6 +7,7 @@ interface OutputPaneProps {
   logs: LogEntry[]
   onClear: () => void
   activeTabId?: string
+  isModalOpen?: boolean
 }
 
 type ViewMode = 'console' | 'preview' | 'split'
@@ -25,14 +26,14 @@ function formatValue(val: any): string {
   return String(val)
 }
 
-export const OutputPane: React.FC<OutputPaneProps> = ({ logs, onClear: _onClear, activeTabId }) => {
+export const OutputPane: React.FC<OutputPaneProps> = ({ logs, onClear: _onClear, activeTabId, isModalOpen = false }) => {
   const [copied, setCopied] = useState(false)
   const [viewMode, setViewMode] = useState<ViewMode>('split')
   const previewRef = useRef<HTMLDivElement>(null)
 
   usePreviewOverlay(
     previewRef,
-    viewMode === 'preview' || viewMode === 'split',
+    (viewMode === 'preview' || viewMode === 'split') && !isModalOpen,
     activeTabId || 'default'
   )
 

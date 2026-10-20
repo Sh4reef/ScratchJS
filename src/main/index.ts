@@ -6,9 +6,13 @@ import { store, TabData, UserPreferences } from './store'
 import { ExecutionOptions } from './runner/executor'
 import { previewManager, PreviewBounds } from './runner/preview-manager'
 import { packageManager } from './packages/manager'
+import { setupEnvironmentPath } from './path-utils'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
+
+// Setup system environment PATH early for shell tools, node, and npm
+setupEnvironmentPath()
 
 app.name = 'ScratchJS'
 
@@ -173,11 +177,16 @@ function registerIpcHandlers(): void {
     previewManager.setVisible(visible)
   })
 
+  ipcMain.on('preview:get-module-paths', (event) => {
+    event.returnValue = packageManager.getNodeModulesPaths()
+  })
+
   // Runner IPC
   ipcMain.handle('runner:execute', async (event, code: string, options: ExecutionOptions) => {
     const fullOptions = {
       ...options,
-      centralModulesPath: packageManager.getNodeModulesPath()
+      centralModulesPath: packageManager.getNodeModulesPath(),
+      centralModulesPaths: packageManager.getNodeModulesPaths()
     }
 
     const channel = `preview:log:${options.tabId}`
