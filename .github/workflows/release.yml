@@ -63,13 +63,15 @@ jobs:
             if [ -n "$CSC_NAME" ]; then
               echo "CSC_NAME=$CSC_NAME" >> $GITHUB_ENV
             fi
+            # Override default ad-hoc identity to discover certificate from CSC_LINK
+            echo "MAC_BUILD_EXTRA_ARGS=-- -c.mac.identity=null" >> $GITHUB_ENV
           else
-            echo "No CSC_LINK secret configured. Generating self-signed certificate for macOS build..."
-            bash scripts/setup-mac-self-signing.sh --ci
+            echo "No CSC_LINK secret configured. Using ad-hoc self-signing (identity: '-')."
+            echo "MAC_BUILD_EXTRA_ARGS=" >> $GITHUB_ENV
           fi
 
       - name: Build application packages
-        run: ${{ matrix.build_cmd }}
+        run: ${{ matrix.build_cmd }} $MAC_BUILD_EXTRA_ARGS
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
