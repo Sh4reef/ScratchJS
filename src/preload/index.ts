@@ -105,6 +105,14 @@ const api = {
   // Window Management
   toggleMaximize: (): Promise<boolean> => {
     return ipcRenderer.invoke('window:toggle-maximize')
+  },
+
+  // Preview Overlay
+  setPreviewBounds: (bounds: { x: number; y: number; width: number; height: number }): void => {
+    ipcRenderer.send('preview:set-bounds', bounds)
+  },
+  setPreviewVisible: (visible: boolean): void => {
+    ipcRenderer.send('preview:set-visible', visible)
   }
 }
 

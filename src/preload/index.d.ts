@@ -68,6 +68,10 @@ export interface ElectronAPI {
 
   // Window Management
   toggleMaximize: () => Promise<boolean>
+
+  // Preview Overlay
+  setPreviewBounds: (bounds: { x: number; y: number; width: number; height: number }) => void
+  setPreviewVisible: (visible: boolean) => void
 }
 
 declare global {

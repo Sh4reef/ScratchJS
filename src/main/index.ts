@@ -3,7 +3,8 @@ import { join, dirname } from 'path'
 import { existsSync } from 'fs'
 import { fileURLToPath } from 'url'
 import { store, TabData, UserPreferences } from './store'
-import { executor, ExecutionOptions } from './runner/executor'
+import { ExecutionOptions } from './runner/executor'
+import { previewManager, PreviewBounds } from './runner/preview-manager'
 import { packageManager } from './packages/manager'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -51,6 +52,8 @@ function createWindow(): void {
       nodeIntegration: false
     }
   })
+
+  previewManager.init(mainWindow)
 
   mainWindow.on('ready-to-show', () => {
     mainWindow?.show()
@@ -161,20 +164,39 @@ function buildMenu(): void {
 }
 
 function registerIpcHandlers(): void {
+  // Preview Overlay IPC
+  ipcMain.on('preview:set-bounds', (_event, bounds: PreviewBounds) => {
+    previewManager.setBounds(bounds)
+  })
+
+  ipcMain.on('preview:set-visible', (_event, visible: boolean) => {
+    previewManager.setVisible(visible)
+  })
+
   // Runner IPC
   ipcMain.handle('runner:execute', async (event, code: string, options: ExecutionOptions) => {
-    const fullOptions: ExecutionOptions = {
+    const fullOptions = {
       ...options,
       centralModulesPath: packageManager.getNodeModulesPath()
     }
 
-    return executor.execute(code, fullOptions, (entry) => {
+    const channel = `preview:log:${options.tabId}`
+    const logHandler = (_: any, entry: any) => {
       event.sender.send(`runner:log:${options.tabId}`, entry)
-    })
+    }
+    ipcMain.on(channel, logHandler)
+
+    try {
+      return await previewManager.execute(code, fullOptions, (entry) => {
+        event.sender.send(`runner:log:${options.tabId}`, entry)
+      })
+    } finally {
+      ipcMain.removeListener(channel, logHandler)
+    }
   })
 
   ipcMain.handle('runner:stop', (_event, tabId: string) => {
-    return executor.stop(tabId)
+    return previewManager.stop(tabId)
   })
 
   // Tabs & Preferences Store IPC
